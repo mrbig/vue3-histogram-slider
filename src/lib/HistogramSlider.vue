@@ -21,7 +21,7 @@
 let $ = require('jquery')
 import './range-slider'
 import props from './props'
-import { nextTick } from 'vue'
+import { nextTick, unref } from 'vue'
 import * as d3Scale from 'd3-scale'
 import * as d3Array from 'd3-array'
 import * as d3Select from 'd3-selection'
@@ -77,11 +77,11 @@ export default {
       await nextTick()
       const width = document.querySelector(`#parent_${this.elementId}`).clientWidth - 20
 
-      const min = this.min || d3Array.min(this.data)
-      const max = this.max || d3Array.max(this.data)
+      const min = this.min || d3Array.min(this.data, (d) => (this.dataInBuckets ? d.x0 : d))
+      const max = this.max || d3Array.max(this.data, (d) => (this.dataInBuckets ? d.x0 : d))
 
       const isTypeSingle = this.type == 'single'
-      let svg, histogram, x, y, hist, bins, colors, brush
+      let svg, x, y, hist, bins, colors, brush
 
       this.updateBarColor = (val) => {
         let transition = d3Trans.transition().duration(this.transitionDuration)
@@ -120,20 +120,36 @@ export default {
         colors = () => this.primaryColor
       }
 
+      // Convert data into buckets
+      const calculateBuckets = (data) => {
+        if (this.dataInBuckets) {
+          return unref(this.data)
+        }
+
+        const histogram = d3Array
+          .bin()
+          .domain(x.domain())
+          .thresholds(width / (this.barWidth + this.barGap))
+
+        return histogram(data)
+      }
+
+      const getY = (d) => {
+        if (this.dataInBuckets) {
+          return d.y
+        }
+
+        return d.length
+      }
+
       const updateHistogram = ([min, max]) => {
         let transition = d3Trans.transition().duration(this.transitionDuration)
 
         hist.selectAll(`.vue-histogram-slider-bar-${this.elementId}`).remove()
 
-        histogram = d3Array
-          .bin()
-          .domain(x.domain())
-          .thresholds(width / (this.barWidth + this.barGap))
+        bins = calculateBuckets(this.data)
 
-        // group data for bars
-        bins = histogram(this.data)
-
-        y.domain([0, d3Array.max(bins, (d) => d.length)])
+        y.domain([0, d3Array.max(bins, getY)])
 
         hist
           .selectAll(`.vue-histogram-slider-bar-${this.elementId}`)
@@ -142,11 +158,11 @@ export default {
           .insert('rect', 'rect.overlay')
           .attr('class', `vue-histogram-slider-bar-${this.elementId}`)
           .attr('x', (d) => x(d.x0))
-          .attr('y', (d) => y(d.length))
+          .attr('y', (d) => y(getY(d)))
           .attr('rx', this.barRadius)
           .attr('width', this.barWidth)
           .transition(transition)
-          .attr('height', (d) => this.barHeight - y(d.length))
+          .attr('height', (d) => this.barHeight - y(getY(d)))
           .attr('fill', (d) => (isTypeSingle ? this.holderColor : colors(d.x0)))
 
         if (this.ionRangeSlider) {

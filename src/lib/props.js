@@ -3,6 +3,10 @@ export default {
     type: Array,
     required: true
   },
+  dataInBuckets: {
+    type: Boolean,
+    default: false
+  },
   min: {
     type: Number
   },
