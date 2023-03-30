@@ -98,7 +98,11 @@ export default {
       }
 
       // x scale for time
-      x = d3Scale.scaleLinear().domain([min, max]).range([0, width]).clamp(true)
+      x = d3Scale
+        .scaleLinear()
+        .domain([min, max])
+        .range([0, width - (this.dataInBuckets ? this.barWidth : 0)])
+        .clamp(true)
 
       // y scale for histogram
       y = d3Scale.scaleLinear().range([this.barHeight, 0])
